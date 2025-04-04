@@ -1,0 +1,5 @@
+default_settings:
+  threshold: 0.90
+  slow_factor: 1.0
+  output_dir: "output"
+  yaml_dir: "inspiration/timestamp_yamls"
