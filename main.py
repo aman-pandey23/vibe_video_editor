@@ -1,31 +1,52 @@
 import argparse
 from pathlib import Path
-from core.scene_detector import SceneDetector
+from core.detection.scene_detector import SceneDetector
+from utils.config.config_utils import load_config
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Automated video editor with scene detection and processing"
+        description="Vibe Video Editor - Automated Scene Detection",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("input_video", help="Path to input video file")
-    parser.add_argument("-o", "--output_video", help="Output video path", default=None)
-    parser.add_argument("-t", "--threshold", type=float, default=0.9,
-                       help="Histogram correlation threshold (default: 0.9)")
-    parser.add_argument("-s", "--slow_factor", type=float, default=1.0,
-                       help="Output video speed factor (default: 1.0)")
-    
+    subparsers = parser.add_subparsers(dest='command', required=True)
+
+    # Detection command
+    detect_parser = subparsers.add_parser('detect', 
+        help="Analyze video for scene transitions")
+    detect_parser.add_argument(
+        "-c", "--config",
+        type=lambda p: Path(p).resolve(),
+        required=True,
+        help="Path to YAML config file"
+    )
+
     args = parser.parse_args()
-    
-    detector = SceneDetector()
-    timestamps = detector.process_video(
-        input_path=args.input_video,
-        output_path=args.output_video,
-        threshold=args.threshold,
-        slow_factor=args.slow_factor
-    )
-    
-    print("\nDetection complete!")
-    print(f" - Processed video saved to: {detector._get_output_path(args.input_video)}")
-    print(f" - Timestamps saved to: inspiration/timestamp_yamls/{Path(args.input_video).stem}_timestamps.yml")
+
+    try:
+        if args.command == 'detect':
+            print(f"\nLoading configuration from: {args.config}")
+            config = load_config(args.config)
+            
+            print("\nInitializing scene detector...")
+            detector = SceneDetector(config)
+            
+            print("Starting video analysis...")
+            detector.process_video()
+            
+            print("\nDetection completed successfully!")
+            print(f" - Detected events: {len(detector.get_event_timestamps)}")
+            print(f" - Output video: {detector.get_output_path}")
+            print(f" - Timestamps file: {detector.get_timestamps_path}")
+
+    except FileNotFoundError as e:
+        print(f"\nFile error: {str(e)}")
+    except ValueError as e:
+        print(f"\nConfiguration error: {str(e)}")
+    except RuntimeError as e:
+        print(f"\nProcessing error: {str(e)}")
+    except Exception as e:
+        print(f"\nUnexpected error: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     main()

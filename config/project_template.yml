@@ -1,0 +1,9 @@
+project: "my_project"
+inspiration_video: "inspiration/input_videos/input_videoOOO.mp4"
+source_materials:
+  - "source_videos/footage1.mp4"
+  - "source_videos/footage2.mp4"
+output:
+  resolution: 1920x1080
+  format: mp4
+  naming_template: "{project}_v{version}"

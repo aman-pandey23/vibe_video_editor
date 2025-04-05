@@ -1,5 +1,7 @@
-default_settings:
+# config/default_config.yml
+scene_detection:
+  input_path: "inspiration/input_videos/test_video.mp4"
   threshold: 0.90
   slow_factor: 1.0
-  output_dir: "output"
+  output_dir: "output/processed"
   yaml_dir: "inspiration/timestamp_yamls"

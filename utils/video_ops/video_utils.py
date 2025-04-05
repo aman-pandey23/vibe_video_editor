@@ -19,3 +19,10 @@ def overlay_event_text(frame, text="EVENT"):
 
     cv2.putText(frame, text, (text_x, text_y), font, font_scale, color, thickness, cv2.LINE_AA)
     return frame
+
+
+# def random_clip_selection(video_path, duration, avoid_regions):
+#     # Select non-overlapping random clip from source video
+
+# def apply_transition(clip1, clip2, transition_type):
+#     # Apply specified transition effect

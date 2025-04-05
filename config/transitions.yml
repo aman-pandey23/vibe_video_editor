@@ -1,0 +1,5 @@
+default: fade
+available_transitions:
+  flash:
+    duration: 0.1
+    color: white
