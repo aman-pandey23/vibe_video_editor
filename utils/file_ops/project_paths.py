@@ -39,6 +39,16 @@ class ProjectFS:
 
     def audio_mp3(self) -> Path:
         return self.rendered_dir / f"{self.project}_audio.mp3"
+    
+    def edit_video_variant(self, tag: str) -> Path:
+        # tag can be "v1", "seed42", "v003", etc.
+        return self.rendered_dir / f"{self.project}_edit_{tag}.mp4"
+
+    def edit_with_audio_variant(self, tag: str) -> Path:
+        return self.rendered_dir / f"{self.project}_edit_{tag}_with_audio.mp4"
+
+    def audio_mp3_variant(self, tag: str) -> Path:
+        return self.rendered_dir / f"{self.project}_audio_{tag}.mp3"
 
     def ensure_dirs(self):
         self.project_root.mkdir(parents=True, exist_ok=True)
