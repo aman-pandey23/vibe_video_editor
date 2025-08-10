@@ -1,7 +1,19 @@
 # config/default_config.yml
+base_dir: "projects"    # all projects live under ./projects/
+
 scene_detection:
-  input_path: "inspiration/input_videos/test_video.mp4"
   threshold: 0.90
   slow_factor: 1.0
-  output_dir: "output/processed"
-  yaml_dir: "inspiration/timestamp_yamls"
+
+composer:
+  allowed_exts: [".mp4", ".mov", ".m4v"]
+  # target_resolution: [1280, 720]
+  allow_reuse_segments: true
+  max_selection_attempts: 80
+  music_source: auto
+  output_settings:
+    codec: libx264
+    audio_codec: aac
+    fps: 30
+
+

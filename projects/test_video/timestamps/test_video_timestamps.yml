@@ -1,5 +1,6 @@
-detection_time: '2025-04-05T16:57:55.190235'
-source_video: inspiration/input_videos/test_video.mp4
+detection_time: '2025-08-10T21:34:37.040168'
+project: test_video
+source_video: /home/aman/vibe_coding_ws/vibe_video_editor/projects/test_video/input/test_video.mp4
 timestamps:
 - 0.39666666666666667
 - 0.8633333333333334
