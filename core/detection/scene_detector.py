@@ -29,7 +29,6 @@ class SceneDetector:
     def process_video(self):
         input_path = self.paths.input_video()
         threshold = float(self.cfg['threshold'])
-        slow_factor = float(self.cfg.get('slow_factor', 1.0))
 
         if not input_path.exists():
             raise FileNotFoundError(f"Input video not found: {input_path}")
@@ -40,10 +39,10 @@ class SceneDetector:
 
         cap, ok = self._try_open_cv2_capture(input_path)
         if ok:
-            self._process_with_cv2_capture(cap, threshold, slow_factor)
+            self._process_with_cv2_capture(cap, threshold)
         else:
             print("OpenCV failed to open the video. Falling back to MoviePy reader...")
-            self._process_with_moviepy_reader(input_path, threshold, slow_factor)
+            self._process_with_moviepy_reader(input_path, threshold)
 
         self._save_timestamps(input_path)
 
@@ -65,7 +64,7 @@ class SceneDetector:
             pass
         return None, False
 
-    def _process_with_cv2_capture(self, cap: cv2.VideoCapture, threshold: float, slow_factor: float):
+    def _process_with_cv2_capture(self, cap: cv2.VideoCapture, threshold: float):
         try:
             input_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
             if np.isnan(input_fps) or input_fps <= 0:
@@ -109,7 +108,7 @@ class SceneDetector:
             cap.release()
 
     # ---------- MoviePy fallback ----------
-    def _process_with_moviepy_reader(self, input_path: Path, threshold: float, slow_factor: float):
+    def _process_with_moviepy_reader(self, input_path: Path, threshold: float):
         from moviepy.editor import VideoFileClip
 
         with VideoFileClip(str(input_path)) as clip:

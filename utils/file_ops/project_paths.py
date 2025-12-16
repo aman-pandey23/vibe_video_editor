@@ -25,30 +25,19 @@ class ProjectFS:
         # if none present, return a non-existing default (caller should error nicely)
         return self.input_dir / "input.mp4"
 
+    def input_audio(self) -> Path:
+        # pick the first audio file in input/ (mp3, wav, m4a, etc.)
+        for p in self.input_dir.glob("*"):
+            if p.suffix.lower() in {".mp3", ".wav", ".m4a", ".flac", ".aac", ".ogg"}:
+                return p
+        # if none present, return a non-existing default (caller should error nicely)
+        return self.input_dir / "input.mp3"
+
     def timestamps_yaml(self) -> Path:
         return self.timestamps_dir / f"{self.project}_timestamps.yml"
 
     def processed_video(self) -> Path:
         return self.processed_dir / f"{self.project}_processed.mp4"
-
-    def edit_video(self) -> Path:
-        return self.rendered_dir / f"{self.project}_edit.mp4"
-
-    def edit_with_audio(self) -> Path:
-        return self.rendered_dir / f"{self.project}_edit_with_audio.mp4"
-
-    def audio_mp3(self) -> Path:
-        return self.rendered_dir / f"{self.project}_audio.mp3"
-    
-    def edit_video_variant(self, tag: str) -> Path:
-        # tag can be "v1", "seed42", "v003", etc.
-        return self.rendered_dir / f"{self.project}_edit_{tag}.mp4"
-
-    def edit_with_audio_variant(self, tag: str) -> Path:
-        return self.rendered_dir / f"{self.project}_edit_{tag}_with_audio.mp4"
-
-    def audio_mp3_variant(self, tag: str) -> Path:
-        return self.rendered_dir / f"{self.project}_audio_{tag}.mp3"
 
     def ensure_dirs(self):
         self.project_root.mkdir(parents=True, exist_ok=True)

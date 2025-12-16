@@ -22,6 +22,7 @@ class VideoComposer:
         self.target_resolution = tuple(self.cfg.get("target_resolution", [])) or None
         self.max_selection_attempts = int(self.cfg.get("max_selection_attempts", 50))
         self.allow_reuse_segments = bool(self.cfg.get("allow_reuse_segments", False))
+        self.clip_overlap = float(self.cfg.get("clip_overlap", 0.0))  # Overlap in seconds (e.g., 1.0 = 1 second overlap)
 
         out_cfg = self.cfg.get("output_settings", {}).copy()
         # We always render into the project's rendered_dir; keep only write_videofile kwargs here
@@ -61,6 +62,25 @@ class VideoComposer:
 
             self.paths.rendered_dir.mkdir(parents=True, exist_ok=True)
 
+            # Handle overlap if configured - create smoother transitions
+            if self.clip_overlap > 0:
+                overlapped_clips = []
+                for i, clip in enumerate(clips):
+                    if i == 0:
+                        # First clip: use as-is
+                        overlapped_clips.append(clip)
+                    else:
+                        # Subsequent clips: start from overlap point to create crossfade effect
+                        # The clip should start from (overlap) seconds into the clip
+                        if clip.duration > self.clip_overlap:
+                            # Start the clip from the overlap point
+                            overlapped_clip = clip.subclip(self.clip_overlap)
+                            overlapped_clips.append(overlapped_clip)
+                        else:
+                            # Clip is too short, use as-is
+                            overlapped_clips.append(clip)
+                clips = overlapped_clips
+            
             final = concatenate_videoclips(clips, method="compose")
             final.write_videofile(str(base_mp4), **self.output_settings)
             final.close()
@@ -77,11 +97,27 @@ class VideoComposer:
             # === Audio handling ===
             if self.music_source:
                 if self.music_source == "auto":
-                    input_video = self.paths.input_video()
-                    if not input_video.exists():
-                        raise FileNotFoundError(f"Project input video not found: {input_video}")
-                    extract_audio_from_video(str(input_video), str(base_mp3))
-                    audio_path = base_mp3
+                    # Check detection mode from timestamps YAML
+                    ts_path = self.paths.timestamps_yaml()
+                    detection_mode = "video_reference"  # default
+                    if ts_path.exists():
+                        with open(ts_path, "r") as f:
+                            ts_data = yaml.safe_load(f) or {}
+                            detection_mode = ts_data.get("detection_mode", "video_reference")
+                    
+                    if detection_mode == "audio_reference":
+                        # In audio mode, use the input audio file directly
+                        input_audio = self.paths.input_audio()
+                        if not input_audio.exists():
+                            raise FileNotFoundError(f"Project input audio not found: {input_audio}")
+                        audio_path = str(input_audio)
+                    else:
+                        # In video mode, extract audio from video
+                        input_video = self.paths.input_video()
+                        if not input_video.exists():
+                            raise FileNotFoundError(f"Project input video not found: {input_video}")
+                        extract_audio_from_video(str(input_video), str(base_mp3))
+                        audio_path = base_mp3
                 else:
                     audio_path = Path(self.music_source)
                     if not audio_path.exists():
@@ -131,51 +167,96 @@ class VideoComposer:
     def _select_clips(self, durations: List[float]):
         out = []
         source_paths = list(self.sources.keys())
+        
+        # Shuffle source paths for more randomness
+        import random
+        random.shuffle(source_paths)
+        
         for dur in durations:
             if dur <= 0.0:
                 continue
-            selected = self._select_one_clip(source_paths, dur)
+            
+            # Add overlap to duration if configured
+            clip_duration = dur + self.clip_overlap
+            
+            selected = self._select_one_clip(source_paths, clip_duration, dur)
             if selected is None:
-                selected = self._best_possible_clip(source_paths, dur)
+                selected = self._best_possible_clip(source_paths, clip_duration, dur)
                 if selected is None:
                     raise RuntimeError(f"Could not pick clip for duration ~{dur:.3f}s from any source.")
             out.append(selected)
         return out
 
-    def _select_one_clip(self, source_paths: List[str], duration: float) -> Optional[VideoFileClip]:
+    def _select_one_clip(self, source_paths: List[str], clip_duration: float, target_duration: float) -> Optional[VideoFileClip]:
+        """
+        Select a clip with more randomness.
+        clip_duration: Actual clip length (may include overlap)
+        target_duration: Target duration for the segment
+        """
         attempts = 0
         while attempts < self.max_selection_attempts:
             attempts += 1
+            # More random selection - shuffle and pick, or use weighted random
             spath = random.choice(source_paths)
             src = self.sources[spath]
-            if src.duration <= duration + 0.05:
+            
+            if src.duration <= clip_duration + 0.05:
                 continue
-            max_start = src.duration - duration - 0.02
-            start = random.uniform(0.0, max_start)
-            end = start + duration
-            if self.allow_reuse_segments or not self._overlaps(spath, start, end):
+            
+            # More random start position - use wider range
+            max_start = src.duration - clip_duration - 0.02
+            if max_start <= 0:
+                continue
+            
+            # Add more randomness: sometimes pick from beginning, middle, or end
+            rand_type = random.random()
+            if rand_type < 0.33:
+                # Prefer beginning
+                start = random.uniform(0.0, max_start * 0.3)
+            elif rand_type < 0.66:
+                # Prefer middle
+                start = random.uniform(max_start * 0.3, max_start * 0.7)
+            else:
+                # Prefer end
+                start = random.uniform(max_start * 0.7, max_start)
+            
+            end = start + clip_duration
+            
+            # If overlap is enabled, allow overlapping segments
+            if self.clip_overlap > 0 or self.allow_reuse_segments or not self._overlaps(spath, start, end):
                 self.used[spath].append((start, end))
-                return src.subclip(start, end)
+                clip = src.subclip(start, end)
+                
+                # If we have overlap, we'll handle it during concatenation
+                # For now, return the full clip (overlap will be handled by adjusting start times)
+                return clip
         return None
 
-    def _best_possible_clip(self, source_paths: List[str], duration: float) -> Optional[VideoFileClip]:
+    def _best_possible_clip(self, source_paths: List[str], clip_duration: float, target_duration: float) -> Optional[VideoFileClip]:
+        """Fallback: find best possible clip when exact match fails"""
         best_clip = None
         best_len = 0.0
-        for spath in source_paths:
+        # Shuffle for more randomness
+        shuffled_paths = source_paths.copy()
+        random.shuffle(shuffled_paths)
+        
+        for spath in shuffled_paths:
             src = self.sources[spath]
-            window = min(duration, max(0.0, src.duration - 0.02))
+            window = min(clip_duration, max(0.0, src.duration - 0.02))
             if window <= 0.0:
                 continue
-            for _ in range(10):
+            for _ in range(20):  # More attempts for better randomness
                 if window > src.duration - 0.02:
                     continue
-                start = random.uniform(0.0, src.duration - window - 0.02)
+                # More random positioning
+                max_start = src.duration - window - 0.02
+                start = random.uniform(0.0, max_start)
                 end = start + window
-                if self.allow_reuse_segments or not self._overlaps(spath, start, end):
+                if self.clip_overlap > 0 or self.allow_reuse_segments or not self._overlaps(spath, start, end):
                     if window > best_len:
                         best_len = window
                         best_clip = src.subclip(start, end)
-                        if abs(window - duration) < 0.05:
+                        if abs(window - clip_duration) < 0.05:
                             break
         return best_clip
 

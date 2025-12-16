@@ -1,0 +1,37 @@
+# config/audio_reference_config.yml
+# Audio Reference Mode: Uses an audio file to detect beats and generate timestamps
+mode: "audio_reference"  # Options: "video_reference" or "audio_reference"
+
+base_dir: "projects"    # all projects live under ./projects/
+
+audio_beat_detection:
+  # Beat fraction: How often clips change relative to beats (BPM-based)
+  # 1.0 = every beat (standard)
+  # 0.5 = every half beat (2x speed, high velocity)
+  # 0.25 = every quarter beat (4x speed, very fast)
+  # 2.0 = every 2 beats (slower)
+  # 4.0 = every 4 beats (much slower)
+  # Supports any value > 0 (including sub-beat values like 0.5, 0.25, etc.)
+  beat_fraction: 0.5  # Change clips every half beat for high-velocity edits
+  
+  # Minimum duration between cuts (in seconds)
+  # Prevents clips from being too short
+  min_clip_duration: 0.1
+
+composer:
+  allowed_exts: [".mp4", ".mov", ".m4v"]
+  # target_resolution: [1280, 720]  # Optional: uncomment to resize all clips
+  allow_reuse_segments: true  # Allow reusing same segments from source clips
+  max_selection_attempts: 100  # Max attempts to find clip (increased for more randomness)
+  
+  # Clip overlap: Allow clips to overlap by this many seconds (e.g., 1.0 = 1 second overlap)
+  # Creates smoother transitions and more dynamic edits
+  clip_overlap: 1.5  # 1.5 seconds overlap between clips for smoother transitions
+
+  music_source: auto  # "auto" uses the input audio file directly in audio_reference mode
+
+  output_settings:
+    codec: libx264
+    audio_codec: aac
+    fps: 30
+

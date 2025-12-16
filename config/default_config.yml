@@ -1,9 +1,11 @@
 # config/default_config.yml
+# Video Reference Mode: Uses a reference video to detect scene transitions
+mode: "video_reference"  # Options: "video_reference" or "audio_reference"
+
 base_dir: "projects"    # all projects live under ./projects/
 
 scene_detection:
-  threshold: 0.90
-  slow_factor: 1.0
+  threshold: 0.90  # Histogram correlation threshold for scene detection (lower = more sensitive)
 
 composer:
   allowed_exts: [".mp4", ".mov", ".m4v"]

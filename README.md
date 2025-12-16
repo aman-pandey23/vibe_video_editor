@@ -1,7 +1,12 @@
 # Vibe Video Editor — User Guide
 
-A clip-sync video editor that learns beat/cut timing from a **reference edit**, then auto-composes a new montage from your own clips. 🎬  
+A clip-sync video editor that learns beat/cut timing from a **reference edit** or **audio file**, then auto-composes a new montage from your own clips. 🎬  
 Supports generating **multiple unique edit versions** from the same detected timestamps using different seeds.
+
+## 🎵 Two Editing Modes
+
+1. **Video Reference Mode** (default): Analyzes a reference video to detect scene transitions and extract timestamps
+2. **Audio Reference Mode** (new): Analyzes an audio file to detect beats/BPM and generate timestamps based on musical rhythm
 
 ---
 
@@ -19,13 +24,30 @@ Supports generating **multiple unique edit versions** from the same detected tim
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Avoid potential NumPy 2.x/SciPy mismatches
+# Upgrade pip first
 pip install --upgrade pip
-pip install "numpy<2" scipy matplotlib
 
-# Core dependencies
-pip install moviepy opencv-python pyyaml
-````
+# Install all dependencies from requirements.txt
+pip install -r requirements.txt
+```
+
+**Or install manually:**
+```bash
+# Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Upgrade pip
+pip install --upgrade pip
+
+# Install with version constraints to avoid compatibility issues
+pip install "numpy<2" "scipy>=1.9.0,<1.12.0" "matplotlib<4" moviepy opencv-python pyyaml librosa
+```
+
+**Important Compatibility Notes:**
+- **NumPy 2.x** has compatibility issues with scipy/matplotlib. Always use `numpy<2` until dependencies are updated.
+- **SciPy 1.12+** moved `hann` function, breaking librosa 0.10.0. Use `scipy<1.12.0` for audio mode compatibility.
+- The `requirements.txt` file includes all correct version constraints.
 
 ---
 
@@ -52,8 +74,15 @@ config/default_config.yml
 
 ## 📥 3. Media Placement
 
+### Video Reference Mode:
 * **Reference/Beat video** → `projects/<name>/input/`
   The audio from this will be extracted (or use custom audio in config).
+
+### Audio Reference Mode:
+* **Reference audio file** (MP3, WAV, etc.) → `projects/<name>/input/`
+  Beat detection will analyze this file to generate timestamps.
+
+### Both Modes:
 * **Source clips** → `projects/<name>/sources/`
   These are sliced and arranged according to detected timestamps.
 
@@ -169,28 +198,59 @@ done
 
 ---
 
-## ⚙️ 7. Config (`config/default_config.yml`)
+## ⚙️ 7. Configuration Files
+
+### Video Reference Mode (`config/default_config.yml`)
 
 ```yaml
+mode: "video_reference"  # Use video to detect scene transitions
+
 base_dir: "projects"
 
 scene_detection:
-  threshold: 0.90
-  slow_factor: 1.0
+  threshold: 0.90  # Histogram correlation threshold (lower = more sensitive)
 
 composer:
   allowed_exts: [".mp4", ".mov", ".m4v"]
-  target_resolution: [1280, 720]
+  # target_resolution: [1280, 720]  # Optional: uncomment to resize all clips
   allow_reuse_segments: true
   max_selection_attempts: 80
-
-  music_source: auto  # or path to custom mp3
-
+  music_source: auto  # Extracts audio from reference video
   output_settings:
     codec: libx264
     audio_codec: aac
     fps: 30
 ```
+
+### Audio Reference Mode (`config/audio_reference_config.yml`)
+
+```yaml
+mode: "audio_reference"  # Use audio file to detect beats
+
+base_dir: "projects"
+
+audio_beat_detection:
+  clip_change_frequency: 2    # Change clips every N beats (1=fast, 2=medium, 4=slow)
+  min_clip_duration: 0.5      # Minimum seconds between cuts
+  max_clip_duration: 5.0       # Maximum seconds between cuts
+
+composer:
+  allowed_exts: [".mp4", ".mov", ".m4v"]
+  allow_reuse_segments: true
+  max_selection_attempts: 80
+  music_source: auto  # Uses the input audio file directly
+  output_settings:
+    codec: libx264
+    audio_codec: aac
+    fps: 30
+```
+
+**Audio Mode Parameters:**
+- `clip_change_frequency`: How often clips change (1=every beat, 2=every 2 beats, 4=every 4 beats)
+- `min_clip_duration`: Minimum time between cuts (prevents too-short clips)
+- `max_clip_duration`: Maximum time between cuts (adds intermediate cuts if exceeded)
+
+See `AUDIO_MODE_GUIDE.md` for detailed audio mode documentation.
 
 ---
 

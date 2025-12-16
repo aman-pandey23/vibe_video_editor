@@ -1,6 +1,6 @@
 {
-  "seed": 101,
-  "variant_tag": "v001",
+  "seed": null,
+  "variant_tag": null,
   "num_clips": 33,
   "allow_reuse_segments": true
 }

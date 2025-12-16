@@ -1,0 +1,18 @@
+# Vibe Video Editor - Requirements
+# Python 3.9-3.11 recommended
+
+# Core dependencies
+numpy<2.0.0  # NumPy 2.x has compatibility issues with scipy/matplotlib
+scipy>=1.9.0,<1.12.0  # Compatible with numpy<2 and librosa 0.10.0 (hann moved to windows in 1.12+)
+matplotlib>=3.5.0,<4.0.0  # Compatible with numpy<2
+
+# Video editing
+moviepy>=1.0.3
+opencv-python>=4.5.0
+
+# Configuration
+pyyaml>=6.0
+
+# Audio processing (for audio_reference mode)
+librosa>=0.10.0
+

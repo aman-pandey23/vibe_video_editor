@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 
 from core.detection.scene_detector import SceneDetector
+from core.detection.audio_beat_detector import AudioBeatDetector
 from core.composition.video_composer import VideoComposer
 from utils.config.config_utils import load_config
 from utils.file_ops.project_paths import ProjectFS
@@ -27,13 +28,28 @@ def init_project(base_dir: Path, project: str, create_dummies: bool = False):
     # Drop a README into the project with quick instructions (optional nicety)
     readme = paths.project_root / "README.txt"
     if not readme.exists():
+        # Determine mode from config if available
+        mode = "video_reference"  # default
+        try:
+            from utils.config.config_utils import load_config
+            # Try to load config to determine mode (if config path is known)
+            pass  # Will be set by caller if needed
+        except:
+            pass
+        
+        mode_instructions = {
+            "video_reference": "Put your reference (beat) video into ./input/\n",
+            "audio_reference": "Put your reference audio file (MP3/WAV) into ./input/\n"
+        }
+        instruction = mode_instructions.get(mode, mode_instructions["video_reference"])
+        
         readme.write_text(
             "Project skeleton created.\n\n"
-            "Put your reference (beat) video into ./input/\n"
+            f"{instruction}"
             "Put your source clips into ./sources/\n"
             "Then run:\n"
-            f"  python main.py detect  --config config/default_config.yml --project {project}\n"
-            f"  python main.py compose --config config/default_config.yml --project {project}\n"
+            f"  python main.py detect  --config <config_file> --project {project}\n"
+            f"  python main.py compose --config <config_file> --project {project}\n"
         )
 
     if create_dummies:
@@ -45,13 +61,28 @@ def init_project(base_dir: Path, project: str, create_dummies: bool = False):
     return paths
 
 def run_detect(config: dict, project: str):
-    detector = SceneDetector(config, project_name=project)
-    print("Starting video analysis...")
-    detector.process_video()
-    print("\nDetection completed successfully!")
-    print(f" - Detected events: {len(detector.get_event_timestamps)}")
-    print(f" - Output video: {detector.get_output_path}")
-    print(f" - Timestamps file: {detector.get_timestamps_path}")
+    """Run detection based on configured mode (video_reference or audio_reference)"""
+    mode = config.get('mode', 'video_reference')
+    
+    if mode == 'audio_reference':
+        detector = AudioBeatDetector(config, project_name=project)
+        print("Starting audio beat detection...")
+        detector.process_audio()
+        print("\nBeat detection completed successfully!")
+        if detector.get_bpm:
+            print(f" - Detected BPM: {detector.get_bpm:.2f}")
+        else:
+            print(" - BPM: N/A")
+        print(f" - Detected beats: {len(detector.get_beat_timestamps)}")
+        print(f" - Timestamps file: {detector.get_timestamps_path}")
+    else:  # video_reference (default)
+        detector = SceneDetector(config, project_name=project)
+        print("Starting video analysis...")
+        detector.process_video()
+        print("\nDetection completed successfully!")
+        print(f" - Detected events: {len(detector.get_event_timestamps)}")
+        print(f" - Output video: {detector.get_output_path}")
+        print(f" - Timestamps file: {detector.get_timestamps_path}")
 
 def run_compose(config: dict, project: str, seed=None, tag=None) -> str:
     composer = VideoComposer(config, project_name=project, seed=seed)
@@ -137,7 +168,11 @@ def main():
             base_dir = Path(config.get('base_dir', 'projects')).resolve()
             paths = init_project(base_dir, args.project, create_dummies=args.with_dummies)
             print(f"Project created at: {paths.project_root}")
-            print(f" - Put your reference/beat video in: {paths.input_dir}")
+            mode = config.get('mode', 'video_reference')
+            if mode == 'audio_reference':
+                print(f" - Put your reference audio file (MP3/WAV) in: {paths.input_dir}")
+            else:
+                print(f" - Put your reference/beat video in: {paths.input_dir}")
             print(f" - Put your source clips in: {paths.sources_dir}")
             print("Then run detection and composition:\n"
                   f"  python main.py detect  --config {args.config} --project {args.project}\n"
